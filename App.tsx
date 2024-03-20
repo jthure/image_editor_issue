@@ -1,7 +1,12 @@
 import {StyleSheet, View, Image, useWindowDimensions} from 'react-native';
 import ImageEditor from '@react-native-community/image-editor';
 import React, {useCallback, useEffect, useState} from 'react';
-import {copyFile, PicturesDirectoryPath} from 'react-native-fs';
+import {
+  copyFile,
+  PicturesDirectoryPath,
+  downloadFile,
+  TemporaryDirectoryPath,
+} from 'react-native-fs';
 
 export default function App() {
   const dimensions = useWindowDimensions();
@@ -39,19 +44,27 @@ const useScaledImage = () => {
 
   const scaleImage = useCallback(async () => {
     const asset = Image.resolveAssetSource(require('./image.jpeg'));
+    const downloadedFile = `${TemporaryDirectoryPath}/image.jpeg`;
+    const {promise} = downloadFile({
+      fromUrl: asset.uri,
+      toFile: downloadedFile,
+    });
+    await promise;
+
+    const downloadedFileUri = `file://${downloadedFile}`;
     const {width, height} = await new Promise<{
       width: number;
       height: number;
     }>((resolve, reject) =>
       Image.getSize(
-        asset.uri,
+        downloadedFileUri,
         (_width, _height) => resolve({width: _width, height: _height}),
         reject,
       ),
     );
-    const cropResult1 = await ImageEditor.cropImage(asset.uri, {
-      offset: {x: 0, y: 0},
-      size: {width, height},
+    const cropResult1 = await ImageEditor.cropImage(downloadedFileUri, {
+      offset: {x: 200, y: 200},
+      size: {width: width - 400, height: height - 400},
     });
 
     const scaleFactor = 200 / width;
@@ -60,7 +73,7 @@ const useScaledImage = () => {
       height: height * scaleFactor,
     };
 
-    const cropResult2 = await ImageEditor.cropImage(asset.uri, {
+    const cropResult2 = await ImageEditor.cropImage(downloadedFileUri, {
       offset: {x: 0, y: 0},
       size: {width, height},
       displaySize,
